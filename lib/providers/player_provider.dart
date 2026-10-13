@@ -1208,6 +1208,13 @@ class PlayerProvider extends ChangeNotifier with WidgetsBindingObserver {
       MediaNotificationService.onSeekTo = (pos) {
         if (!_isDisposed) seek(Duration(milliseconds: pos));
       };
+      MediaNotificationService.onSetLoopMode = (mode) {
+        if (_isDisposed) return;
+        setLoopMode(AppLoopMode.values.firstWhere(
+          (m) => m.name == mode,
+          orElse: () => AppLoopMode.off,
+        ));
+      };
       final audioServiceModule = await _loadAudioService();
       _ensureNotDisposed();
       _audioService = audioServiceModule;
@@ -5771,6 +5778,9 @@ class PlayerProvider extends ChangeNotifier with WidgetsBindingObserver {
     onRoomPlayModeChanged?.call(roomPlayModeValue);
     _saveState();
     notifyListeners();
+    // 同步到 MediaSession/SMTC：Windows 媒体浮层的循环按钮高亮随 loopMode
+    // 变化，切换后立即回写，否则要等下一次切歌/播放态翻转才刷新。
+    _updateNotification();
   }
 
   Future<void> toggleShuffle() async {
@@ -5807,6 +5817,8 @@ class PlayerProvider extends ChangeNotifier with WidgetsBindingObserver {
     onRoomPlayModeChanged?.call(roomPlayModeValue);
     _savePlaylistIfChanged();
     notifyListeners();
+    // 随机开关也会改变循环按钮语义（随机视作「列表循环+打乱」），同步给 SMTC。
+    _updateNotification();
   }
 
   /// [persist] 为 false 时跳过 SharedPreferences 落盘（常驻音量条拖动中的高频
@@ -6193,6 +6205,8 @@ class PlayerProvider extends ChangeNotifier with WidgetsBindingObserver {
       duration: _duration ?? Duration.zero,
       desktopLyricEnabled: DesktopLyricService.instance.enabled,
       isFavorited: isFavorited,
+      loopMode: _loopMode.name,
+      shuffleEnabled: _shuffleEnabled,
     );
   }
 

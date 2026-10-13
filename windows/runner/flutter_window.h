@@ -9,6 +9,7 @@
 
 #include "win32_window.h"
 #include "floating_lyric_window.h"
+#include "media_controls.h"
 
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
@@ -34,6 +35,8 @@ class FlutterWindow : public Win32Window {
   // fluttertoast 在 Windows 无实现，这里用原生 MessageBoxW 兜底 showToast。
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> message_channel_;
   FloatingLyricWindow floating_lyric_;
+  // Windows 系统媒体传输控件（媒体浮层/锁屏/媒体键）。
+  MediaControlsController media_controls_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

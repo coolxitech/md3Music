@@ -200,8 +200,40 @@ bool FlutterWindow::OnCreate() {
           // Windows 无蓝牙歌词 / LyricInfo 能力，吞掉即可，不要抛
           // NotImplemented 让 Dart 侧反复走异常分支。
           result->Success(flutter::EncodableValue(true));
+        } else if (method == "updateNotification") {
+          // Android 的 updateNotification 在 Windows 上映射到 SMTC
+          // （媒体浮层/锁屏/媒体键）。Dart 侧已有完整的元数据/进度/播放态
+          // 上报链路，这里直接消费，无需改 Dart。
+          media_controls_.UpdateMetadata(
+              StringArg(args, "title"), StringArg(args, "artist"),
+              StringArg(args, "artUrl"), IntArg(args, "position", 0),
+              IntArg(args, "duration", 0), BoolArg(args, "isPlaying", false),
+              StringArg(args, "loopMode"), BoolArg(args, "shuffleEnabled", false));
+          result->Success(flutter::EncodableValue(true));
+        } else if (method == "hideNotification") {
+          media_controls_.SetPlaybackStatus(false);
+          result->Success(flutter::EncodableValue(true));
         } else {
           result->NotImplemented();
+        }
+      });
+  // 把播放元数据/状态发布到 Windows SMTC，并把媒体键/浮层按钮回传 Dart
+  // （复用 lyric_channel_ 上的 previous/next/togglePlayPause/seekTo 方法）。
+  media_controls_.Initialize(
+      GetHandle(),
+      [this](const std::string& action, int64_t position_ms,
+             const std::string& arg) {
+        if (!lyric_channel_) return;
+        if (action == "seekTo") {
+          lyric_channel_->InvokeMethod(
+              "seekTo",
+              std::make_unique<flutter::EncodableValue>(position_ms));
+        } else if (action == "setLoopMode") {
+          lyric_channel_->InvokeMethod(
+              "setLoopMode", std::make_unique<flutter::EncodableValue>(arg));
+        } else {
+          lyric_channel_->InvokeMethod(
+              action, std::make_unique<flutter::EncodableValue>());
         }
       });
   message_channel_ =
@@ -248,6 +280,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  media_controls_.Shutdown();
   floating_lyric_.Stop();
   lyric_channel_.reset();
   message_channel_.reset();
@@ -275,6 +308,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    default:
+      // SMTC 媒体键/进度拖动经 PostMessage 封送到 UI 线程后在此分发。
+      if (media_controls_.HandleWindowMessage(message, wparam, lparam)) {
+        return 0;
+      }
       break;
   }
 

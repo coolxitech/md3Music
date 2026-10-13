@@ -32,6 +32,9 @@ class MediaNotificationService {
   static void Function()? onNext;
   static void Function()? onTogglePlayPause;
   static void Function(int)? onSeekTo;
+  /// Windows SMTC 循环（Repeat）按钮：系统算好目标循环模式后回传
+  /// （'off' / 'one' / 'all'），App 直接精确设定而非自行循环切换。
+  static void Function(String)? onSetLoopMode;
   /// 媒体键快进/快退（TV 遥控器）；由 desktop_lyric_service.registerNativeCallbacks 装配。
   static void Function()? onSeekForward;
   static void Function()? onSeekBack;
@@ -116,6 +119,10 @@ class MediaNotificationService {
           final pos = call.arguments as int?;
           if (pos != null) onSeekTo?.call(pos);
           break;
+        case 'setLoopMode':
+          final mode = call.arguments as String?;
+          if (mode != null) onSetLoopMode?.call(mode);
+          break;
         case 'toggleDesktopLyric':
           onToggleDesktopLyric?.call();
           break;
@@ -174,6 +181,8 @@ class MediaNotificationService {
     Duration duration = Duration.zero,
     bool desktopLyricEnabled = false,
     bool isFavorited = false,
+    String loopMode = 'off',
+    bool shuffleEnabled = false,
   }) async {
     try {
       await _channel.invokeMethod('updateNotification', {
@@ -187,6 +196,8 @@ class MediaNotificationService {
         'duration': duration.inMilliseconds,
         'desktopLyricEnabled': desktopLyricEnabled,
         'isFavorited': isFavorited,
+        'loopMode': loopMode,
+        'shuffleEnabled': shuffleEnabled,
       });
     } catch (_) {}
   }

@@ -112,6 +112,25 @@ endif()
 include(flutter/generated_plugins.cmake)
 
 
+# === ATL 静态库兜底（flutter_secure_storage_windows 依赖 atls.lib） ===
+# 该插件源码 include <atlstr.h>，CA2W/CW2A 等符号定义在 ATL 静态库 atls.lib
+# 里（经 <atlstr.h> 的 #pragma comment(lib,"atls.lib") 隐式链接）。
+# 本机 Build Tools 只装了 Spectre 版 ATL（atlmfc\lib\spectre\x64\atls.lib），
+# 标准版 atlmfc\lib\x64 缺失 → vcvars 的 LIB 里没有 ATL 库路径 → 链接期
+# LNK1104: 无法打开 atls.lib。Spectre 库与标准库 ABI 兼容（仅多 Spectre 缓解
+# 指令，混链到非 /Qspectre 目标安全），这里给该插件补 spectre 库搜索路径兜底。
+if(TARGET flutter_secure_storage_windows_plugin)
+  # CMAKE_CXX_COMPILER = ...\MSVC\<ver>\bin\Hostx64\x64\cl.exe
+  get_filename_component(_md3_msvc_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+  get_filename_component(_md3_msvc_ver "${_md3_msvc_bin}/../../.." ABSOLUTE)
+  set(_md3_atl_spectre_lib "${_md3_msvc_ver}/atlmfc/lib/spectre/x64")
+  if(EXISTS "${_md3_atl_spectre_lib}/atls.lib")
+    target_link_directories(flutter_secure_storage_windows_plugin PRIVATE
+      "${_md3_atl_spectre_lib}")
+  endif()
+endif()
+
+
 # === 复制 Rust 本地 API 服务器 dll 到 exe 同目录 ===
 # 桌面版 kugou_server.dll 由 kugou_api_server\rust\build_desktop.ps1 产出。
 # 打包脚本(scripts\md3.ps1 windows)只在 release 构建后手动复制，导致

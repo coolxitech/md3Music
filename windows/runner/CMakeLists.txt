@@ -9,6 +9,7 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "floating_lyric_window.cpp"
+  "media_controls.cpp"
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"
@@ -34,6 +35,9 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
+# SMTC（media_controls.cpp）用 C++/WinRT 调用 RoGetActivationFactory 与
+# Windows.Media 运行库，需要 windowsapp.lib。
+target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 # 桌面歌词用 AlphaBlend 混合半透明背板（0% 纯透明 → 100% 纯黑）
 target_link_libraries(${BINARY_NAME} PRIVATE "msimg32.lib")
